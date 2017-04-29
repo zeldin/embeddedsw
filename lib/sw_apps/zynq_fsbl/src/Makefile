@@ -48,11 +48,11 @@ LSCRIPT := -Tlscript.ld
 
 BSP_DIR	:= ../misc/
 
-LIBS := libxil.a 
-EXEC := fsbl.elf
-
 INCLUDEPATH := -I$(BSP_DIR)/ps7_cortexa9_0/include -I.
 LIBPATH := $(BSP_DIR)/ps7_cortexa9_0/lib
+
+LIBS := $(LIBPATH)/libxil.a
+EXEC := fsbl.elf
 
 BOARD	:= zc702
 DEPS	:= depends
@@ -61,7 +61,7 @@ all: $(EXEC)
 
 $(EXEC): $(DEPS) $(LIBS) $(OBJS) $(INCLUDES)
 	$(LINKER) -o $@ $(OBJS) $(CC_FLAGS) $(LDFLAGS) $(LSCRIPT)
-	rm -rf $(OBJS) 
+	@: rm -rf $(OBJS)
 
 $(DEPS):
 ifeq "$(CC)" "arm-xilinx-eabi-gcc"
