@@ -295,12 +295,19 @@ int main(void)
 			SDK_RELEASE_YEAR, SDK_RELEASE_QUARTER,
 			__DATE__,__TIME__);
 
+	/*
+	 * TE-Modification: Modified FSBL to run on DDR Less Zynq PS
+	 * https://wiki.trenz-electronic.de/display/PD/DDR+less+ZYNQ+Design
+	 */
+      
+#define XPAR_PS7_DDR_0_S_AXI_BASEADDR 0
 #ifdef XPAR_PS7_DDR_0_S_AXI_BASEADDR
 
     /*
      * DDR Read/write test 
      */
-	Status = DDRInitCheck();
+	// Status = DDRInitCheck();
+  fsbl_printf(DEBUG_GENERAL,"TE0722 FSBL Modification: DDR Init Check is disabled and define XPAR_PS7_DDR_0_S_AXI_BASEADDR 0 is added.\n\r");
 	if (Status == XST_FAILURE) {
 		fsbl_printf(DEBUG_GENERAL,"DDR_INIT_FAIL \r\n");
 		/* Error Handling here */
