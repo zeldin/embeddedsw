@@ -311,7 +311,7 @@ extern "C" {
 #include "xil_printf.h"
 #include "pcap.h"
 #include "fsbl_debug.h"
-#include "ps7_init.h"
+#include "ps7_init_gpl.h"
 #ifdef FSBL_PERF
 #include "xtime_l.h"
 #include <stdio.h>

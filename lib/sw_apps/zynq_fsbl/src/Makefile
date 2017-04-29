@@ -37,10 +37,12 @@ CFLAGS :=
 ECFLAGS := 
 LDFLAGS := 
 
-c_SOURCES := $(wildcard *.c)
-S_SOURCES := $(wildcard *.S)
-s_SOURCES := $(wildcard *.s)
-INCLUDES := $(wildcard *.h)
+c_SOURCES := fsbl_hooks.c image_mover.c main.c md5.c nand.c nor.c pcap.c \
+	     ps7_init_gpl.c qspi.c rsa.c sd.c
+S_SOURCES := fsbl_handoff.S
+s_SOURCES :=
+INCLUDES := fsbl.h fsbl_debug.h fsbl_hooks.h image_mover.h md5.h nand.h \
+	    nor.h pcap.h ps7_init_gpl.h qspi.h rsa.h sd.h
 OBJS := $(patsubst %.c, %.o, $(c_SOURCES))
 OBJS += $(patsubst %.S, %.o, $(S_SOURCES))
 OBJS += $(patsubst %.s, %.o, $(s_SOURCES))
@@ -80,8 +82,8 @@ endif
 	
 	
 $(LIBS): 
-	echo "Copying ps7_init* files"
-	cp $(BSP_DIR)/$(BOARD)/ps7_init.* .
+	echo "Copying ps7_init_gpl* files"
+	cp $(BSP_DIR)/$(BOARD)/ps7_init_gpl.* .
 	echo "Copying BSP files"
 	$(BSP_DIR)/copy_bsp.sh "$(BOARD)" "$(CC)"
 	echo "Compiling bsp"
@@ -92,6 +94,9 @@ $(LIBS):
 	fi;
 
 $(OBJS): $(LIBS)
+
+ps7_init_gpl.o : ps7_init_gpl.c
+ps7_init_gpl.c : $(LIBS)
 
 %.o:%.c
 	$(CC) $(CC_FLAGS) $(CFLAGS) $(ECFLAGS) -c $< -o $@ $(INCLUDEPATH)
@@ -110,5 +115,5 @@ $(OBJS): $(LIBS)
 	$(AS) $(CC_FLAGS) $(CFLAGS) $(ECFLAGS) -c $< -o $@ $(INCLUDEPATH)
 
 clean:
-	rm -rf $(OBJS) $(BSP_DIR)/ps7_cortexa9_0 $(EXEC)
+	rm -rf $(OBJS) $(BSP_DIR)/ps7_cortexa9_0 $(EXEC) ps7_init_gpl.*
 
