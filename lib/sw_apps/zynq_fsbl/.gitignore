@@ -1,0 +1,3 @@
+src/*.o
+src/fsbl.elf
+misc/ps7_cortexa9_0
