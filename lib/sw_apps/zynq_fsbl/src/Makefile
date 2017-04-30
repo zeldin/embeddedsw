@@ -56,7 +56,7 @@ LIBPATH := $(BSP_DIR)/ps7_cortexa9_0/lib
 LIBS := $(LIBPATH)/libxil.a
 EXEC := fsbl.elf
 
-BOARD	:= zc702
+BOARD	:= te0722
 DEPS	:= depends
 
 all: $(EXEC)
