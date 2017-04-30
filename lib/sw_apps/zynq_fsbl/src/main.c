@@ -240,6 +240,7 @@ int main(void)
 	u32 BootModeRegister = 0;
 	u32 HandoffAddress = 0;
 	u32 Status = XST_SUCCESS;
+	u32 BootModeSwitchedToSD = 0;
 
 	/*
 	 * PCW initialization for MIO,PLL,CLK and DDR
@@ -391,6 +392,14 @@ int main(void)
 	BootModeRegister = Xil_In32(BOOT_MODE_REG);
 	BootModeRegister &= BOOT_MODES_MASK;
 
+#if defined(XPAR_PS7_SD_0_S_AXI_BASEADDR) || defined(XPAR_XSDPS_0_BASEADDR)
+	/* Check if we should switch to SD */
+	if (BootModeRegister != SD_MODE && InitSD("BOOT.BIN") == XST_SUCCESS) {
+	  BootModeRegister = SD_MODE;
+	  BootModeSwitchedToSD = 1;
+	}
+#endif
+
 	/*
 	 * QSPI BOOT MODE
 	 */
@@ -466,7 +475,7 @@ int main(void)
 		/*
 		 * SD initialization returns file open error or success
 		 */
-		Status = InitSD("BOOT.BIN");
+		Status = (BootModeSwitchedToSD? XST_SUCCESS : InitSD("BOOT.BIN"));
 		if (Status != XST_SUCCESS) {
 			fsbl_printf(DEBUG_GENERAL,"SD_INIT_FAIL\r\n");
 			OutputStatus(SD_INIT_FAIL);
