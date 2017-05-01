@@ -144,6 +144,14 @@ extern u32 FlashReadBaseAddress;
 extern u8 LinearBootDeviceFlag;
 extern XDcfg *DcfgInstPtr;
 
+#if (!DDR_START_ADDR) && (!DDR_END_ADDR)
+#undef DDR_START_ADDR
+#undef DDR_END_ADDR
+/* Free OCM area */
+#define DDR_START_ADDR 0x20000
+#define DDR_END_ADDR 0x30000
+#endif
+
 /*****************************************************************************/
 /**
 *
