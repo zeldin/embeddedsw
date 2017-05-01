@@ -115,6 +115,13 @@
 
 #define DCFG_DEVICE_ID		XPAR_XDCFG_0_DEVICE_ID
 
+#if (!DDR_START_ADDR) && (!DDR_END_ADDR)
+#undef DDR_START_ADDR
+#undef DDR_END_ADDR
+/* Free OCM area */
+#define DDR_START_ADDR 0x20000
+#define DDR_END_ADDR 0x30000
+#endif
 /**************************** Type Definitions *******************************/
 
 /***************** Macros (Inline Functions) Definitions *********************/
@@ -130,6 +137,8 @@ extern u32 Silicon_Version;
 #ifdef XPAR_XWDTPS_0_BASEADDR
 extern XWdtPs Watchdog;	/* Instance of WatchDog Timer	*/
 #endif
+
+ImageMoverType MoveImage;
 
 /******************************************************************************/
 /**
@@ -261,16 +270,18 @@ u32 PcapDataTransfer(u32 *SourceDataPtr, u32 *DestinationDataPtr,
 *
 ****************************************************************************/
 u32 PcapLoadPartition(u32 *SourceDataPtr, u32 *DestinationDataPtr,
-		u32 SourceLength, u32 DestinationLength, u32 SecureTransfer)
+		      u32 SourceLength, u32 DestinationLength, u32 Flags)
 {
 	u32 Status;
 	u32 IntrStsReg;
 	u32 PcapTransferType = XDCFG_NON_SECURE_PCAP_WRITE;
+	u32 *TmpSourceDataPtr, *TmpDestinationDataPtr;
+	u32 TmpSourceLength, TmpDestinationLength;
 
 	/*
 	 * Check for secure transfer
 	 */
-	if (SecureTransfer) {
+	if (Flags & 1) {
 		PcapTransferType = XDCFG_SECURE_PCAP_WRITE;
 	}
 
@@ -310,40 +321,68 @@ u32 PcapLoadPartition(u32 *SourceDataPtr, u32 *DestinationDataPtr,
 #endif
 
 	/*
-	 * PCAP single DMA transfer setup
+	 * PCAP multiple DMA transfer setup
 	 */
-	SourceDataPtr = (u32*)((u32)SourceDataPtr | PCAP_LAST_TRANSFER);
-	DestinationDataPtr = (u32*)((u32)DestinationDataPtr | PCAP_LAST_TRANSFER);
-
-	/*
-	 * Transfer using Device Configuration
-	 */
-	Status = XDcfg_Transfer(DcfgInstPtr, (u8 *)SourceDataPtr,
-					SourceLength,
-					(u8 *)DestinationDataPtr,
-					DestinationLength, PcapTransferType);
-	if (Status != XST_SUCCESS) {
-		fsbl_printf(DEBUG_INFO,"Status of XDcfg_Transfer = %lu \r \n",Status);
+	do {
+	  TmpSourceDataPtr = SourceDataPtr;
+	  TmpDestinationDataPtr = DestinationDataPtr;
+	  TmpSourceLength = SourceLength;
+	  TmpDestinationLength = DestinationLength;
+	  if (!(Flags & 2)) {
+	    if (TmpSourceLength > ((DDR_END_ADDR-DDR_START_ADDR)>>WORD_LENGTH_SHIFT)) {
+	      TmpSourceLength = ((DDR_END_ADDR-DDR_START_ADDR)>>WORD_LENGTH_SHIFT);
+	      if (TmpDestinationLength > TmpSourceLength) {
+		TmpDestinationLength = TmpSourceLength;
+	      }
+	    }
+	    if (TmpSourceLength > 0) {
+	      Status = MoveImage((u32)SourceDataPtr,
+				 DDR_START_ADDR,
+				 (TmpSourceLength << WORD_LENGTH_SHIFT));
+	      if(Status != XST_SUCCESS) {
+		fsbl_printf(DEBUG_GENERAL, "Move Image Failed\r\n");
 		return XST_FAILURE;
-	}
+	      }
+	    }
+	    TmpSourceDataPtr = (void *)DDR_START_ADDR;
+	  }
+	  if (TmpSourceLength >= SourceLength) {
+	    TmpSourceDataPtr = (u32*)((u32)TmpSourceDataPtr | PCAP_LAST_TRANSFER);
+	    TmpDestinationDataPtr = (u32*)((u32)TmpDestinationDataPtr | PCAP_LAST_TRANSFER);
+	  }
+	  SourceDataPtr += TmpSourceLength;
+	  SourceLength -= TmpSourceLength;
+	  DestinationLength -= TmpDestinationLength;
 
+	  /*
+	   * Transfer using Device Configuration
+	   */
+	  Status = XDcfg_Transfer(DcfgInstPtr, (u8 *)TmpSourceDataPtr,
+				  TmpSourceLength,
+				  (u8 *)TmpDestinationDataPtr,
+				  TmpDestinationLength, PcapTransferType);
+	  if (Status != XST_SUCCESS) {
+	    fsbl_printf(DEBUG_INFO,"Status of XDcfg_Transfer = %lu \r \n",Status);
+	    return XST_FAILURE;
+	  }
 
-	/*
-	 * Dump the PCAP registers
-	 */
-	PcapDumpRegisters();
+	  /*
+	   * Dump the PCAP registers
+	   */
+	  PcapDumpRegisters();
 
+	  /*
+	   * Poll for the DMA done
+	   */
+	  Status = XDcfgPollDone(XDCFG_IXR_DMA_DONE_MASK, MAX_COUNT);
+	  if (Status != XST_SUCCESS) {
+	    fsbl_printf(DEBUG_INFO,"PCAP_DMA_DONE_FAIL \r\n");
+	    return XST_FAILURE;
+	  }
 
-	/*
-	 * Poll for the DMA done
-	 */
-	Status = XDcfgPollDone(XDCFG_IXR_DMA_DONE_MASK, MAX_COUNT);
-	if (Status != XST_SUCCESS) {
-		fsbl_printf(DEBUG_INFO,"PCAP_DMA_DONE_FAIL \r\n");
-		return XST_FAILURE;
-	}
+	  fsbl_printf(DEBUG_INFO,"DMA Done ! \n\r");
 
-	fsbl_printf(DEBUG_INFO,"DMA Done ! \n\r");
+	} while(SourceLength > 0);
 
 	/*
 	 * Poll for FPGA Done

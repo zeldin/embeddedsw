@@ -145,6 +145,7 @@ extern u8 LinearBootDeviceFlag;
 extern XDcfg *DcfgInstPtr;
 
 #if (!DDR_START_ADDR) && (!DDR_END_ADDR)
+#define PL_CHUNKED_TRANSFER 1
 #undef DDR_START_ADDR
 #undef DDR_END_ADDR
 /* Free OCM area */
@@ -541,7 +542,7 @@ u32 LoadBootImage(void)
 						(u32*)PartitionLoadAddr,
 						PartitionImageLength,
 						PartitionDataLength,
-						EncryptedPartitionFlag);
+						(EncryptedPartitionFlag? 1 : 0) | 2);
 				if (Status != XST_SUCCESS) {
 					fsbl_printf(DEBUG_GENERAL,"BITSTREAM_DOWNLOAD_FAIL\r\n");
 					OutputStatus(BITSTREAM_DOWNLOAD_FAIL);
@@ -1101,7 +1102,11 @@ u32 PartitionMove(u32 ImageBaseAddress, PartHeader *Header)
 	 * CPU is used for data transfer in case of non-linear
 	 * boot device
 	 */
-	if (!LinearBootDeviceFlag) {
+	if (!LinearBootDeviceFlag
+#if PL_CHUNKED_TRANSFER
+	    && !PLPartitionFlag
+#endif
+	    ) {
 		/*
 		 * PL partition copied to DDR temporary location
 		 */
@@ -1164,7 +1169,8 @@ u32 PartitionMove(u32 ImageBaseAddress, PartHeader *Header)
 					(u32*)Header->LoadAddr,
 					Header->ImageWordLen,
 					Header->DataWordLen,
-					EncryptedPartitionFlag);
+					(EncryptedPartitionFlag? 1 : 0) |
+					(LinearBootDeviceFlag? 2 : 0));
 		if(Status != XST_SUCCESS) {
 			fsbl_printf(DEBUG_GENERAL, "PCAP Bitstream Download Failed\r\n");
 			return XST_FAILURE;
